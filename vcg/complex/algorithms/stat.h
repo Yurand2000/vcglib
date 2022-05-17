@@ -542,7 +542,7 @@ public:
     while (!frontier.empty());
 
     //create output attribute
-    auto attribute = vcg::tri::Allocator<MeshType>::GetPerVertexAttribute<Scalarm>(tree, StrahlerNumberAttributeName);
+    auto attribute = vcg::tri::Allocator<MeshType>::template GetPerVertexAttribute<Scalarm>(tree, StrahlerNumberAttributeName);
     for (int i = 0; i < tree.VN(); i++)
       attribute[i] = 1;
 
