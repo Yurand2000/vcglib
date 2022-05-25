@@ -231,6 +231,7 @@ void VEEdgeCollapseNonManifold(MeshType& poly, typename MeshType::EdgeType* e0, 
 {
 	typedef typename MeshType::EdgeType EdgeType;
 
+    assert( !e0->IsD() );
 	std::vector<EdgeType*> edges;
 
 	auto* root_vertex  = e0->V(z);
