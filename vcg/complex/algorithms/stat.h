@@ -543,8 +543,8 @@ public:
 
     //create output attribute
     auto attribute = vcg::tri::Allocator<MeshType>::template GetPerVertexAttribute<ScalarType>(tree, StrahlerNumberAttributeName);
-    for (int i = 0; i < tree.VN(); i++)
-      attribute[i] = 1;
+    for (auto& vert : tree.vert)
+	  attribute[vert] = 0;
 
     //strahler number assignment from leafs to the root
     while (!tree_reverse.empty())
@@ -552,9 +552,15 @@ public:
       auto top = tree_reverse.top();
       tree_reverse.pop();
 
-      auto  curr_num   = attribute[top.node];
-      auto& parent_num = attribute[top.parent];
-      if (parent_num < curr_num + 1)
+      auto& curr_num   = attribute[top.node];
+	  auto& parent_num = attribute[top.parent];
+
+	  if (curr_num == 0)
+		  curr_num = 1;
+
+	  if (parent_num < curr_num)
+		parent_num = curr_num;
+      else if (parent_num == curr_num)
         parent_num = curr_num + 1;
     }
   }
