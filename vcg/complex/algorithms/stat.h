@@ -489,27 +489,112 @@ public:
         }
     return sum/(m.fn*3.0);
   }
-
-  /* !Calculate the Strahler Numbers for the given tree mesh.
-   * The calculated numbers are added to a custon (Scalarm type) attribute by
-   * the name of 'strahler_number'. The tree mesh must have no loops, have only
+  
+  /* !Compute the Hack Stream Ordering for the given tree mesh.
+   * The criteria to which to choose the main stream is the deviation at a confluence.
+   * The computed numbers are added to a custon (Scalarm type) attribute by
+   * the default name of 'hack_order_number'. The tree mesh must have no loops, have only
    * border or non manifold vertices and have Vertex Edge adjacency,
    * index and mark components.
    * 
    * The root_index parameter specifies the index of the vertex that will
    * be considered as a root for the Strahler Tree.
    */
-  static void CalculateStrahlerNumbers(MeshType& tree, int root_index)
+  static void ComputeHackOrderNumbers(MeshType& tree, int root_index, const char* attributeName = "hack_order_number")
   {
-    constexpr const char* StrahlerNumberAttributeName = "strahler_number";
+    struct Node
+    {
+      VertexPointer node;
+      VertexPointer parent;
+    };
 
+    //check if the mesh has the required components
+    vcg::tri::RequirePerVertexMark(tree);
+	vcg::tri::RequireVEAdjacency(tree);
+
+	if (root_index < 0 || root_index >= tree.VN())
+	  throw vcg::MissingPreconditionException("Given index does not represent any valid vertex on the selected mesh.");
+
+	//create output attribute
+	auto attribute = vcg::tri::Allocator<MeshType>::template GetPerVertexAttribute<ScalarType>(tree, attributeName);
+	for (auto& vert : tree.vert)
+		attribute[vert] = 0;
+
+    //walk the tree from root to leafs
+	auto root = &tree.vert[root_index];
+	attribute[root] = 1;
+    
+	std::stack<Node> frontier;
+    {
+      //fill initial frontier
+	  std::vector<VertexPointer> root_adjs;
+	  vcg::edge::VVStarVE(root, root_adjs);
+	  for (auto& vertex : root_adjs)
+      {
+	    frontier.push({vertex, root});
+	    attribute[vertex] = 1;
+      }
+    }
+
+	vcg::tri::UnMarkAll(tree);
+	vcg::tri::Mark(tree, root);
+    do
+    {
+	  Node node = frontier.top();
+	  vcg::tri::Mark(tree, node.node);
+	  frontier.pop();
+
+      auto last_angle = vcg::math::ToRad(180.0);
+      auto direction  = node.node->cP() - node.parent->cP();
+
+	  std::vector<VertexPointer> verts;
+	  vcg::edge::VVStarVE(node.node, verts);
+	  VertexPointer next_node = verts[0];
+
+      for (auto* adj : verts)
+      {
+        if (!vcg::tri::IsMarked(tree, adj))
+        {
+		  auto adj_direction = adj->cP() - node.node->cP();
+          auto angle = vcg::Angle(direction, adj_direction);
+
+		  if (angle < last_angle)
+          {
+			last_angle = angle;
+            next_node = adj;
+		  }
+
+		  attribute[adj] = attribute[node.node] + 1;
+		  frontier.push({adj, node.node});
+        }
+      }
+
+	  if (!vcg::tri::IsMarked(tree, next_node))
+      {
+	    attribute[next_node] = attribute[node.node];
+      }
+    }
+    while ( !frontier.empty() );
+  }
+
+  /* !Compute the Strahler Numbers for the given tree mesh.
+   * The computed numbers are added to a custom (Scalarm type) attribute by
+   * the default name of 'strahler_number'. The tree mesh must have no loops, have only
+   * border or non manifold vertices and have Vertex Edge adjacency,
+   * index and mark components.
+   * 
+   * The root_index parameter specifies the index of the vertex that will
+   * be considered as a root for the Strahler Tree.
+   */
+  static void ComputeStrahlerNumbers(MeshType& tree, int root_index, const char* attributeName = "strahler_number")
+  {
     struct StrahlerNode
     {
       VertexPointer node;
       VertexPointer parent;
     };
 
-    //check mesh has the required components
+    //check if the mesh has the required components
     vcg::tri::RequirePerVertexMark(tree);
 	vcg::tri::RequireVEAdjacency(tree);
 
@@ -542,7 +627,7 @@ public:
     while (!frontier.empty());
 
     //create output attribute
-    auto attribute = vcg::tri::Allocator<MeshType>::template GetPerVertexAttribute<ScalarType>(tree, StrahlerNumberAttributeName);
+    auto attribute = vcg::tri::Allocator<MeshType>::template GetPerVertexAttribute<ScalarType>(tree, attributeName);
     for (auto& vert : tree.vert)
 	  attribute[vert] = 0;
 
