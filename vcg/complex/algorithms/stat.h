@@ -563,15 +563,24 @@ public:
 			last_angle = angle;
             next_node = adj;
 		  }
-
-		  attribute[adj] = attribute[node.node] + 1;
-		  frontier.push({adj, node.node});
         }
       }
 
-	  if (!vcg::tri::IsMarked(tree, next_node))
+      for (auto* adj : verts)
       {
-	    attribute[next_node] = attribute[node.node];
+        if (!vcg::tri::IsMarked(tree, adj))
+        {
+	      if (adj == next_node)
+          {
+	        attribute[adj] = attribute[node.node];
+		    frontier.push({adj, node.parent});
+          }
+		  else
+          {
+		    attribute[adj] = attribute[node.node] + 1;
+		    frontier.push({adj, node.node});
+          }
+        }
       }
     }
     while ( !frontier.empty() );
